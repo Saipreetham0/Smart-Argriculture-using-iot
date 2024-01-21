@@ -11,9 +11,7 @@
 #include <BlynkSimpleEsp32.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
-#include <SoftwareSerial.h>//Library by EspSoftwareSerial by DirkKaar,peter Lerup
-
-SoftwareSerial sim800l(16, 17); // RX, TX
+#include <SoftwareSerial.h> // Library by EspSoftwareSerial by DirkKaar,peter Lerup
 
 BlynkTimer timer;
 
@@ -23,10 +21,12 @@ BlynkTimer timer;
 #define PIR 25           // D25 on ESP32
 #define RELAY 26         // D26 on ESP32 for the relay
 
-// Initialize DHT sensor
-DHT dht(DHT_PIN, DHT11);
+// SIM800L module settings
+SoftwareSerial sim800lSerial(16, 17); // RX, TX pins for SIM800L
+String receivedMessage = "";
 
 int PIR_ToggleValue;
+DHT dht(DHT_PIN, DHT11);
 
 // Set password to "" for open networks.
 char ssid[] = "KSP";
@@ -35,13 +35,6 @@ char pass[] = "9550421866";
 // Create three variables for pressure
 double T, P;
 char status;
-
-// SIM800L configuration
-#define SIM800L_RX 10
-#define SIM800L_TX 11
-#define SIM800L_RST 9
-
-#define PHONE_NUMBER "+9550421866" // Replace with your phone number
 
 // Get the DHT11 sensor values
 void DHT11sensor()
@@ -75,22 +68,6 @@ void PIRsensor()
   if (value)
   {
     Blynk.logEvent("pirmotion", "WARNING! Motion Detected!"); // Enter your Event Name
-
-    // Send SMS
-    sim800l.begin(9600);
-    delay(500);
-    sim800l.print("AT+CMGF=1\r"); // Set the SMS mode to text
-    delay(100);
-    sim800l.print("AT+CMGS=\"");
-    sim800l.print(PHONE_NUMBER);
-    sim800l.print("\"\r");
-    delay(100);
-    sim800l.print("Warning!Motion detected!"); // Your SMS message
-    delay(100);
-    sim800l.write(26); // End the SMS
-    delay(100);
-    sim800l.println();
-
     WidgetLED LED(V5);
     LED.on();
   }
@@ -106,9 +83,39 @@ BLYNK_WRITE(V3)
   PIR_ToggleValue = param.asInt();
 }
 
+void checkSMS()
+{
+  sim800lSerial.println("AT+CMGF=1"); // Set the SMS mode to text
+  delay(100);
+  sim800lSerial.println("AT+CMGR=1"); // Read the first SMS
+  delay(100);
+
+  while (sim800lSerial.available())
+  {
+    char c = sim800lSerial.read();
+    receivedMessage += c;
+  }
+
+  if (receivedMessage.indexOf("ON") != -1)
+  {
+    digitalWrite(RELAY, HIGH); // Turn on the relay
+    Blynk.virtualWrite(V4, 255); // Set virtual LED brightness (ON)
+  }
+  else if (receivedMessage.indexOf("OFF") != -1)
+  {
+    digitalWrite(RELAY, LOW); // Turn off the relay
+    Blynk.virtualWrite(V4, 0); // Set virtual LED brightness  (OFF)
+  }
+
+  receivedMessage = ""; // Clear the received message
+}
+
 void setup()
 {
   Serial.begin(9600);
+
+  // Set up SoftwareSerial for SIM800L
+  sim800lSerial.begin(9600);
 
   pinMode(PIR, INPUT);
   pinMode(RELAY, OUTPUT);
@@ -118,19 +125,13 @@ void setup()
 
   dht.begin();
 
-  // Call the function
   timer.setInterval(100L, soilMoistureSensor);
   timer.setInterval(100L, DHT11sensor);
-  // timer.setInterval(500L, checkPhysicalButton);
-
-  // SIM800L setup
-  sim800l.begin(9600);
-  Serial.println("SIM800L initialized");
+  timer.setInterval(10000L, checkSMS); // Check for SMS every 10 seconds
 }
 
 void loop()
 {
   Blynk.run();
   timer.run();
-  PIRsensor();
 }
