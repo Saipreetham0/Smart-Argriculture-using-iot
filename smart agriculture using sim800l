@@ -11,15 +11,15 @@
 #include <BlynkSimpleEsp32.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
-#include <SoftwareSerial.h>
+#include <SoftwareSerial.h>//Library by EspSoftwareSerial by DirkKaar,peter Lerup
 
 SoftwareSerial sim800l(16, 17); // RX, TX
 
 BlynkTimer timer;
 
 // Define sensor pins
-#define DHT_PIN 4        // D32 on ESP32
-#define SOIL_MOISTURE 32 // D27 on ESP32
+#define DHT_PIN 4        // D4 on ESP32
+#define SOIL_MOISTURE 32 // D32 on ESP32
 #define PIR 25           // D25 on ESP32
 #define RELAY 26         // D26 on ESP32 for the relay
 
