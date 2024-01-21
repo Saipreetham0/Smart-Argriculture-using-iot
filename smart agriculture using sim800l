@@ -1,0 +1,136 @@
+#define BLYNK_TEMPLATE_ID "TMPL3reDBelVx"
+#define BLYNK_TEMPLATE_NAME "Smart Agriculture System Using IoT"
+#define BLYNK_AUTH_TOKEN "YLh2dO1hKEhl-MX94eGwhT9LyTGF_56j"
+
+/* Comment this out to disable prints and save space */
+#define BLYNK_PRINT Serial
+
+#include <Arduino.h>
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <BlynkSimpleEsp32.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <SoftwareSerial.h>
+
+SoftwareSerial sim800l(16, 17); // RX, TX
+
+BlynkTimer timer;
+
+// Define sensor pins
+#define DHT_PIN 4        // D32 on ESP32
+#define SOIL_MOISTURE 32 // D27 on ESP32
+#define PIR 25           // D25 on ESP32
+#define RELAY 26         // D26 on ESP32 for the relay
+
+// Initialize DHT sensor
+DHT dht(DHT_PIN, DHT11);
+
+int PIR_ToggleValue;
+
+// Set password to "" for open networks.
+char ssid[] = "KSP";
+char pass[] = "9550421866";
+
+// Create three variables for pressure
+double T, P;
+char status;
+
+// SIM800L configuration
+#define SIM800L_RX 10
+#define SIM800L_TX 11
+#define SIM800L_RST 9
+
+#define PHONE_NUMBER "+9550421866" // Replace with your phone number
+
+// Get the DHT11 sensor values
+void DHT11sensor()
+{
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+
+  if (isnan(h) || isnan(t))
+  {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  Blynk.virtualWrite(V0, t);
+  Blynk.virtualWrite(V1, h);
+}
+
+// Get the soil moisture values
+void soilMoistureSensor()
+{
+  int value = analogRead(SOIL_MOISTURE);
+  value = map(value, 0, 1024, 0, 100);
+  value = (value - 100) * -1;
+
+  Blynk.virtualWrite(V2, value);
+}
+
+// Get the PIR sensor values
+void PIRsensor()
+{
+  bool value = digitalRead(PIR);
+  if (value)
+  {
+    Blynk.logEvent("pirmotion", "WARNING! Motion Detected!"); // Enter your Event Name
+
+    // Send SMS
+    sim800l.begin(9600);
+    delay(500);
+    sim800l.print("AT+CMGF=1\r"); // Set the SMS mode to text
+    delay(100);
+    sim800l.print("AT+CMGS=\"");
+    sim800l.print(PHONE_NUMBER);
+    sim800l.print("\"\r");
+    delay(100);
+    sim800l.print("Warning!Motion detected!"); // Your SMS message
+    delay(100);
+    sim800l.write(26); // End the SMS
+    delay(100);
+    sim800l.println();
+
+    WidgetLED LED(V5);
+    LED.on();
+  }
+  else
+  {
+    WidgetLED LED(V5);
+    LED.off();
+  }
+}
+
+BLYNK_WRITE(V3)
+{
+  PIR_ToggleValue = param.asInt();
+}
+
+void setup()
+{
+  Serial.begin(9600);
+
+  pinMode(PIR, INPUT);
+  pinMode(RELAY, OUTPUT);
+  pinMode(SOIL_MOISTURE, INPUT);
+
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+
+  dht.begin();
+
+  // Call the function
+  timer.setInterval(100L, soilMoistureSensor);
+  timer.setInterval(100L, DHT11sensor);
+  // timer.setInterval(500L, checkPhysicalButton);
+
+  // SIM800L setup
+  sim800l.begin(9600);
+  Serial.println("SIM800L initialized");
+}
+
+void loop()
+{
+  Blynk.run();
+  timer.run();
+  PIRsensor();
+}
