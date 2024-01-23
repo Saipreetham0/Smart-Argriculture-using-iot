@@ -19,6 +19,13 @@ BlynkTimer timer;
 #define SOIL_MOISTURE 32 // D27 on ESP32
 #define PIR 25           // D25 on ESP32
 #define RELAY 26         // D26 on ESP32 for the relay
+#define VPIN_BUTTON_1 V12
+#define BUZZER_PIN 23 // GPIO pin to which the buzzer is connected
+
+int relay1State = LOW;
+
+// Soil moisture threshold (adjust as needed)
+int soilMoistureThreshold = 50;
 
 // Initialize DHT sensor
 DHT dht(DHT_PIN, DHT11);
@@ -52,32 +59,73 @@ void DHT11sensor()
 void soilMoistureSensor()
 {
   int value = analogRead(SOIL_MOISTURE);
-  value = map(value, 0, 1024, 0, 100);
-  value = (value - 100) * -1;
+  value = map(value, 0, 4095, 100, 0);
+  // value = (value - 100) * -1;
 
   Blynk.virtualWrite(V2, value);
+  Serial.println(value);
+
+  // Check if soil moisture is below the threshold
+  if (value < soilMoistureThreshold)
+  {
+    // Turn on the relay (motor) if it's not already on
+    if (relay1State == LOW)
+    {
+      digitalWrite(RELAY, HIGH);
+      relay1State = HIGH;
+      Blynk.virtualWrite(VPIN_BUTTON_1, relay1State);
+      Serial.println("Motor turned ON");
+    }
+  }
+  else
+  {
+    // Turn off the relay (motor) if it's not already off
+    if (relay1State == HIGH)
+    {
+      digitalWrite(RELAY, LOW);
+      relay1State = LOW;
+      Blynk.virtualWrite(VPIN_BUTTON_1, relay1State);
+      Serial.println("Motor turned OFF");
+    }
+  }
 }
 
 // Get the PIR sensor values
 void PIRsensor()
 {
   bool value = digitalRead(PIR);
+  Serial.print("PIR Value: ");
+  Serial.println(value);
   if (value)
   {
     Blynk.logEvent("pirmotion", "WARNNG! Motion Detected!"); // Enter your Event Name
     WidgetLED LED(V5);
     LED.on();
+    digitalWrite(BUZZER_PIN, HIGH);
   }
   else
   {
     WidgetLED LED(V5);
     LED.off();
+    digitalWrite(BUZZER_PIN, LOW);
   }
 }
 
-BLYNK_WRITE(V3)
+// BLYNK_WRITE(V3)
+// {
+//   PIR_ToggleValue = param.asInt();
+// }
+
+BLYNK_CONNECTED()
 {
-  PIR_ToggleValue = param.asInt();
+  // Request the latest state from the server
+  Blynk.syncVirtual(VPIN_BUTTON_1);
+}
+
+BLYNK_WRITE(VPIN_BUTTON_1)
+{
+  relay1State = param.asInt();
+  digitalWrite(RELAY, relay1State);
 }
 
 void setup()
@@ -92,6 +140,8 @@ void setup()
 
   pinMode(RELAY, OUTPUT);
   pinMode(SOIL_MOISTURE, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
 
   // digitalWrite(RELAY, LOW);
   // pinMode(PUSH_BUTTON_1, INPUT_PULLUP);
@@ -113,4 +163,5 @@ void loop()
 
   Blynk.run();
   timer.run();
+  PIRsensor();
 }
