@@ -14,8 +14,8 @@
 
 BlynkTimer timer;
 
-// #include <SoftwareSerial.h>
-// SoftwareSerial sim800lSerial(16, 17); // RX2, TX2 pins for SoftwareSerial
+#include <SoftwareSerial.h>
+SoftwareSerial sim800lSerial(16, 17); // RX2, TX2 pins for SoftwareSerial
 
 /* ... (Other includes and definitions) */
 
@@ -71,7 +71,7 @@ void soilMoistureSensor()
   // value = (value - 100) * -1;
 
   Blynk.virtualWrite(V2, value);
-  //  Serial.println(value);
+//  Serial.println(value);
 
   // Check if soil moisture is below the threshold
   if (value < soilMoistureThreshold)
@@ -102,8 +102,8 @@ void soilMoistureSensor()
 void PIRsensor()
 {
   bool value = digitalRead(PIR);
-  //  Serial.print("PIR Value: ");
-  //  Serial.println(value);
+//  Serial.print("PIR Value: ");
+//  Serial.println(value);
   if (value)
   {
     Blynk.logEvent("pirmotion", "WARNNG! Motion Detected!"); // Enter your Event Name
@@ -119,6 +119,11 @@ void PIRsensor()
   }
 }
 
+// BLYNK_WRITE(V3)
+// {
+//   PIR_ToggleValue = param.asInt();
+// }
+
 BLYNK_CONNECTED()
 {
   // Request the latest state from the server
@@ -131,67 +136,77 @@ BLYNK_WRITE(VPIN_BUTTON_1)
   digitalWrite(RELAY, relay1State);
 }
 
-// void sendSMS( String message)
-// {
+void sendSMS( String message)
+{
 
-//    sim800lSerial.println("AT"); // Once the handshake test is successful, it will back to OK
-//   updateSerial();
 
-//   sim800lSerial.println("AT+CMGF=1"); // Configuring TEXT mode
-//   updateSerial();
-//   sim800lSerial.println("AT+CMGS=\"+916304102761\""); // change ZZ with country code and xxxxxxxxxxx with phone number to sms
+   sim800lSerial.println("AT"); // Once the handshake test is successful, it will back to OK
+  updateSerial();
 
-// updateSerial();
-//   // Set the SMS content and send Ctrl+Z to indicate the end
-//   sim800lSerial.print(message);
-//   updateSerial();
-//   sim800lSerial.write(26);
+  sim800lSerial.println("AT+CMGF=1"); // Configuring TEXT mode
+  updateSerial();
+  sim800lSerial.println("AT+CMGS=\"+916304102761\""); // change ZZ with country code and xxxxxxxxxxx with phone number to sms
+//  updateSerial();
+//  sim800lSerial.print("Last Minute Engineers | lastminuteengineers.com"); // text content
+//  updateSerial();
+//  sim800lSerial.write(26);
+  // Set the phone number
+//  sim800lSerial.println("AT+CMGS=\"" + phonenumber + "\"");
+//  delay(1000);
+updateSerial();
+  // Set the SMS content and send Ctrl+Z to indicate the end
+  sim800lSerial.print(message);
+  updateSerial();
+  sim800lSerial.write(26);
 
-//   delay(1000);
-// }
+  delay(1000);
+}
 
-// void processSMS(String command) {
-//   if (command.equalsIgnoreCase("SENSORS")) {
-//     // Get sensor details
-//     float temperature = dht.readTemperature();
-//     float humidity = dht.readHumidity();
-//     int soilMoisture = analogRead(SOIL_MOISTURE);
-//     soilMoisture = map(soilMoisture, 0, 4095, 100, 0);
 
-//     // Prepare sensor details message
-//     String sensorDetails = "Sensor Details:\n";
-//     sensorDetails += "Temperature: " + String(temperature) + " °C\n";
-//     sensorDetails += "Humidity: " + String(humidity) + " %\n";
-//     sensorDetails += "Soil Moisture: " + String(soilMoisture) + " %";
+void processSMS(String command) {
+  if (command.equalsIgnoreCase("SENSORS")) {
+    // Get sensor details
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+    int soilMoisture = analogRead(SOIL_MOISTURE);
+    soilMoisture = map(soilMoisture, 0, 4095, 100, 0);
 
-//     // Send sensor details via SMS
-//     sendSMS( sensorDetails);
-//   } else {
-//     // Handle other commands or provide a response
-//     // For example, send an acknowledgment message
-// //    sendSMS("+919550421866", "Command received: " + command);
-//   }
-// }
+    // Prepare sensor details message
+    String sensorDetails = "Sensor Details:\n";
+    sensorDetails += "Temperature: " + String(temperature) + " °C\n";
+    sensorDetails += "Humidity: " + String(humidity) + " %\n";
+    sensorDetails += "Soil Moisture: " + String(soilMoisture) + " %";
 
-// void updateSerial()
-// {
-//   delay(500);
-//   while (Serial.available())
-//   {
-//     sim800lSerial.write(Serial.read()); // Forward what Serial received to Software Serial Port
-//   }
-//   while (sim800lSerial.available())
-//   {
-//     Serial.write(sim800lSerial.read()); // Forward what Software Serial received to Serial Port
-//   }
-// }
+    // Send sensor details via SMS
+    sendSMS( sensorDetails);
+  } else {
+    // Handle other commands or provide a response
+    // For example, send an acknowledgment message
+//    sendSMS("+919550421866", "Command received: " + command);
+  }
+}
+
+
+
+void updateSerial()
+{
+  delay(500);
+  while (Serial.available())
+  {
+    sim800lSerial.write(Serial.read()); // Forward what Serial received to Software Serial Port
+  }
+  while (sim800lSerial.available())
+  {
+    Serial.write(sim800lSerial.read()); // Forward what Software Serial received to Serial Port
+  }
+}
 
 void setup()
 {
 
   Serial.begin(9600);
 
-  // sim800lSerial.begin(9600); // Initialize SoftwareSerial for SIM800L
+  sim800lSerial.begin(9600); // Initialize SoftwareSerial for SIM800L
   delay(3000);
 
   pinMode(PIR, INPUT);
@@ -208,7 +223,8 @@ void setup()
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
 
   dht.begin();
-  //  sendSMS("+919550421866", "KSP SENSORS");
+//  sendSMS("+919550421866", "KSP SENSORS");
+
 
   // Call the function
   timer.setInterval(100L, soilMoistureSensor);
@@ -223,4 +239,10 @@ void loop()
   Blynk.run();
   timer.run();
   PIRsensor();
+//   if (sim800lSerial.available() > 0) {
+//    String receivedMessage = sim800lSerial.readStringUntil('\n');
+//    processSMS(receivedMessage);
+//  }
+//    updateSerial();
+
 }
